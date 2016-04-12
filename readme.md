@@ -130,7 +130,7 @@ https://medium.com/@gauravtiwari/graphql-and-relay-on-rails-first-relay-powered-
 - [`graphql-batch`](https://github.com/shopify/graphql-batch), a batched query execution strategy
 - [`graphql-parallel`](https://github.com/rmosolgo/graphql-parallel), an asynchronous query execution strategy
 - [Example Relay support](https://github.com/rmosolgo/graphql-relay-ruby) in Ruby
-- [`graphql-libgraphqlparser`](https://github.com/rmosolgo/graphql-libgraphqlparser), bindings to [libgraphqlparser](https://github.com/graphql/libgraphqlparser), a C-level parser.
+- [`graphql-libgraphqlparser`](https://github.com/rmosolgo/graphql-libgraphqlparser-ruby), bindings to [libgraphqlparser](https://github.com/graphql/libgraphqlparser), a C-level parser.
 
 ## To Do
 
