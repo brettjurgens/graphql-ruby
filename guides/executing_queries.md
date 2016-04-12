@@ -1,6 +1,6 @@
 # Executing Queries with `graphql-ruby`
 
-After you define your schema, you can evaluate queries with {GraphQL::Schema#execute}.
+After you define your schema, you can evaluate queries with `GraphQL::Schema#execute`.
 
 At the simplest, you can evaluate a query from string against a schema:
 
@@ -40,7 +40,7 @@ SecretStringField = GraphQL::Field.new do |f|
 end
 ```
 
-Note that `ctx` is not the _same_ hash that's passed to {GraphQL::Schema#execute}. `ctx` is an instance of {GraphQL::Query::Context}, which exposes the provided hash and may _also_ contain other information about the query.
+Note that `ctx` is not the _same_ hash that's passed to `GraphQL::Schema#execute`. `ctx` is an instance of `GraphQL::Query::Context`, which exposes the provided hash and may _also_ contain other information about the query.
 
 ## Operation name
 
@@ -68,11 +68,35 @@ By default, `graphql-ruby` performs validation on incoming query strings. If you
 result = MySchema.execute(query_string, validate: false)
 ```
 
+## Max Depth
+
+To prevent excessive queries, you can define a default max depth on your schema. For example:
+
+```ruby
+MySchema = GraphQL::Schema.new(
+  # ...
+  max_depth: 6
+)
+```
+
+You can also provide a value when executing a query. If present, it overrides the default. For example:
+
+```ruby
+if current_user.admin?
+  max_depth = 10
+else
+  # Fall back to schema's default:
+  max_depth = nil
+end
+
+MySchema.execute(query_string, max_depth: max_depth)
+```
+
 ## Custom Execution Strategies
 
-`graphql` includes a serial execution strategy, but you can also create custom strategies to support advanced behavior. See {GraphQL::BaseExecution#initialize} and {GraphQL::BaseExecution#execute} for the required behaviors.
+`graphql` includes a serial execution strategy, but you can also create custom strategies to support advanced behavior. See `GraphQL::SerialExecution#execute` the required behavior.
 
-Then, set your schema to use your custom execution strategy with {GraphQL::Schema#mutation_execution_strategy} or {GraphQL::Schema#query_execution_strategy}
+Then, set your schema to use your custom execution strategy with `GraphQL::Schema#mutation_execution_strategy` or `GraphQL::Schema#query_execution_strategy`
 
 For example:
 

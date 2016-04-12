@@ -1,7 +1,7 @@
 require 'spec_helper'
 
 describe GraphQL::StaticValidation::VariablesAreUsedAndDefined do
-  let(:document) { GraphQL.parse('
+  let(:query_string) {'
     query getCheese(
       $usedVar: Int,
       $usedInnerVar: String,
@@ -27,10 +27,11 @@ describe GraphQL::StaticValidation::VariablesAreUsedAndDefined do
       source(notDefined: $undefinedFragmentVar)
       someField(someArg: $usedFragmentVar)
     }
-  ')}
+  '}
 
   let(:validator) { GraphQL::StaticValidation::Validator.new(schema: DummySchema, rules: [GraphQL::StaticValidation::VariablesAreUsedAndDefined]) }
-  let(:errors) { validator.validate(document) }
+  let(:query) { GraphQL::Query.new(DummySchema, query_string) }
+  let(:errors) { validator.validate(query) }
 
   it "finds variables which are used-but-not-defined or defined-but-not-used" do
     expected = [
@@ -40,11 +41,11 @@ describe GraphQL::StaticValidation::VariablesAreUsedAndDefined do
       },
       {
         "message"=>"Variable $undefinedVar is used by getCheese but not declared",
-        "locations"=>[{"line"=>11, "column"=>30}]
+        "locations"=>[{"line"=>11, "column"=>29}]
       },
       {
         "message"=>"Variable $undefinedFragmentVar is used by innerCheeseFields but not declared",
-        "locations"=>[{"line"=>24, "column"=>27}]
+        "locations"=>[{"line"=>24, "column"=>26}]
       },
     ]
     assert_equal(expected, errors)

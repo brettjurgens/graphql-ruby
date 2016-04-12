@@ -12,8 +12,13 @@
 #
 class GraphQL::InterfaceType < GraphQL::BaseType
   include GraphQL::BaseType::HasPossibleTypes
-  defined_by_config :name, :description, :fields, :resolve_type
-  attr_accessor :name, :description, :fields
+  accepts_definitions :resolve_type, field: GraphQL::Define::AssignObjectField
+
+  attr_accessor :fields
+
+  def initialize
+    @fields = {}
+  end
 
   def kind
     GraphQL::TypeKinds::INTERFACE
@@ -22,5 +27,15 @@ class GraphQL::InterfaceType < GraphQL::BaseType
   # @return [Array<GraphQL::ObjectType>] Types which declare that they implement this interface
   def possible_types
     @possible_types ||= []
+  end
+
+  # @return [GraphQL::Field] The defined field for `field_name`
+  def get_field(field_name)
+    fields[field_name]
+  end
+
+  # @return [Array<GraphQL::Field>] All fields on this type
+  def all_fields
+    fields.values
   end
 end

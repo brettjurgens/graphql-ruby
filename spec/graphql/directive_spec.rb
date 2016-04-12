@@ -27,7 +27,6 @@ describe GraphQL::Directive do
     it 'intercepts fields' do
       expected = { "data" =>{
         "cheese" => {
-          "dontSkipDontIncludeFlavor" => "Brie", #skip has precedence over include
           "dontSkipFlavor" => "Brie",
           "includeFlavor" => "Brie",
           "includeId" => 1,
@@ -37,7 +36,7 @@ describe GraphQL::Directive do
       assert_equal(expected, result)
     end
   end
-  describe 'on fragments' do
+  describe 'on fragments spreads and inline fragments' do
     let(:query_string) { %|query directives {
       cheese(id: 1) {
         ... skipFlavorField @skip(if: true)
@@ -45,15 +44,13 @@ describe GraphQL::Directive do
         ... includeFlavorField @include(if: true)
         ... dontIncludeFlavorField @include(if: false)
 
-        ... includeIdField
-        ... dontIncludeIdField
-        ... skipIdField
-        ... dontSkipIdField
 
         ... on Cheese @skip(if: true) { skipInlineId: id }
         ... on Cheese @skip(if: false) { dontSkipInlineId: id }
         ... on Cheese @include(if: true) { includeInlineId: id }
         ... on Cheese @include(if: false) { dontIncludeInlineId: id }
+        ... @skip(if: true) { skipNoType: id }
+        ... @skip(if: false) { dontSkipNoType: id }
         }
       }
       fragment includeFlavorField on Cheese { includeFlavor: flavor  }
@@ -61,10 +58,6 @@ describe GraphQL::Directive do
       fragment skipFlavorField on Cheese { skipFlavor: flavor  }
       fragment dontSkipFlavorField on Cheese { dontSkipFlavor: flavor }
 
-      fragment includeIdField on Cheese @include(if: true) { includeId: id  }
-      fragment dontIncludeIdField on Cheese @include(if: false) { dontIncludeId: id  }
-      fragment skipIdField on Cheese @skip(if: true) { skipId: id  }
-      fragment dontSkipIdField on Cheese @skip(if: false) { dontSkipId: id }
     |}
 
     it 'intercepts fragment spreads' do
@@ -72,10 +65,9 @@ describe GraphQL::Directive do
         "cheese" => {
           "dontSkipFlavor" => "Brie",
           "includeFlavor" => "Brie",
-          "includeId" => 1,
-          "dontSkipId" => 1,
           "dontSkipInlineId" => 1,
           "includeInlineId" => 1,
+          "dontSkipNoType" => 1,
         },
       }}
       assert_equal(expected, result)

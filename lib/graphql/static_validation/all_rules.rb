@@ -5,11 +5,12 @@
 # don't exist, etc.
 GraphQL::StaticValidation::ALL_RULES = [
   GraphQL::StaticValidation::DirectivesAreDefined,
+  GraphQL::StaticValidation::DirectivesAreInValidLocations,
   GraphQL::StaticValidation::FragmentsAreFinite,
+  GraphQL::StaticValidation::FragmentsAreUsed,
   GraphQL::StaticValidation::FragmentTypesExist,
   GraphQL::StaticValidation::FragmentsAreOnCompositeTypes,
   GraphQL::StaticValidation::FragmentSpreadsArePossible,
-  GraphQL::StaticValidation::FragmentsAreUsed,
   GraphQL::StaticValidation::FieldsAreDefinedOnType,
   GraphQL::StaticValidation::FieldsWillMerge,
   GraphQL::StaticValidation::FieldsHaveAppropriateSelections,
@@ -20,4 +21,5 @@ GraphQL::StaticValidation::ALL_RULES = [
   GraphQL::StaticValidation::VariableDefaultValuesAreCorrectlyTyped,
   GraphQL::StaticValidation::VariablesAreUsedAndDefined,
   GraphQL::StaticValidation::VariableUsagesAreAllowed,
+  GraphQL::StaticValidation::DocumentDoesNotExceedMaxDepth,
 ]

@@ -30,6 +30,7 @@ describe GraphQL::Query do
   |}
   let(:debug) { false }
   let(:operation_name) { nil }
+  let(:max_depth) { nil }
   let(:query_variables) { {"cheeseId" => 2} }
   let(:schema) { DummySchema }
   let(:query) { GraphQL::Query.new(
@@ -38,6 +39,7 @@ describe GraphQL::Query do
     variables: query_variables,
     debug: debug,
     operation_name: operation_name,
+    max_depth: max_depth,
   )}
   let(:result) { query.result }
   describe '#result' do
@@ -82,22 +84,6 @@ describe GraphQL::Query do
 
   it 'exposes fragments' do
     assert_equal(GraphQL::Language::Nodes::FragmentDefinition, query.fragments['cheeseFields'].class)
-  end
-
-  it 'correctly identifies parse error location' do
-    # "Correct" is a bit of an overstatement. All Parslet errors get surfaced
-    # at the beginning of the query they were in, since Parslet sees the query
-    # as invalid. It would be great to have more granularity here.
-    e = assert_raises(GraphQL::ParseError) do
-      GraphQL.parse("
-        query getCoupons {
-          allCoupons: {data{id}}
-        }
-      ")
-    end
-    assert_equal('Extra input after last repetition at line 2 char 9.', e.message)
-    assert_equal(2, e.line)
-    assert_equal(9, e.col)
   end
 
   describe "merging fragments with different keys" do
@@ -165,22 +151,6 @@ describe GraphQL::Query do
     end
   end
 
-  describe "malformed queries" do
-    describe "whitespace-only" do
-      let(:query_string) { " " }
-      it "doesn't blow up" do
-        assert_equal({}, result)
-      end
-    end
-
-    describe "empty string" do
-      let(:query_string) { "" }
-      it "doesn't blow up" do
-        assert_equal({}, result)
-      end
-    end
-  end
-
   describe "field argument default values" do
     let(:query_string) {%|
       query getCheeses(
@@ -244,7 +214,17 @@ describe GraphQL::Query do
       let(:query_variables) { {"cheeseId" => "2"} }
 
       it "raises an error" do
-        assert_equal(result["errors"][0]["message"], %{Variable cheeseId of type Int! was provided invalid value "2"})
+        expected = {
+          "errors" => [
+            {
+              "message" => "Variable cheeseId of type Int! was provided invalid value",
+              "locations"=>[{ "line" => 2, "column" => 23 }],
+              "value" => "2",
+              "problems" => [{ "path" => [], "explanation" => 'Could not coerce value "2" to Int' }]
+            }
+          ]
+        }
+        assert_equal(expected, result)
       end
     end
 
@@ -252,8 +232,17 @@ describe GraphQL::Query do
       let(:query_variables) { {} }
 
       it "raises an error" do
-        expected = "Variable cheeseId of type Int! can't be null"
-        assert_equal(result["errors"][0]["message"], expected)
+        expected = {
+          "errors" => [
+            {
+              "message" => "Variable cheeseId of type Int! was provided invalid value",
+              "locations" => [{"line" => 2, "column" => 23}],
+              "value" => nil,
+              "problems" => [{ "path" => [], "explanation" => "Expected value to not be null" }]
+            }
+          ]
+        }
+        assert_equal(expected, result)
       end
     end
 
@@ -295,6 +284,20 @@ describe GraphQL::Query do
         it "coerces recursively" do
           assert_equal("Brie", result["data"]["cow"]["flavor"])
         end
+      end
+    end
+  end
+
+  describe "#max_depth" do
+    it "defaults to the schema's max_depth" do
+      assert_equal 5, query.max_depth
+    end
+
+    describe "overriding max_depth" do
+      let(:max_depth) { 12 }
+
+      it "overrides the schema's max_depth" do
+        assert_equal 12, query.max_depth
       end
     end
   end

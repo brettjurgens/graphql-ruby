@@ -1,30 +1,12 @@
 class GraphQL::Query
-  class OperationNameMissingError < StandardError
+  class OperationNameMissingError < GraphQL::ExecutionError
     def initialize(names)
       msg = "You must provide an operation name from: #{names.join(", ")}"
       super(msg)
     end
   end
 
-  class VariableValidationError < GraphQL::ExecutionError
-    def initialize(variable_ast, type, reason)
-      msg = "Variable #{variable_ast.name} of type #{type} #{reason}"
-      super(msg)
-      self.ast_node = variable_ast
-    end
-  end
-
-  class VariableMissingError < VariableValidationError
-    def initialize(variable_ast, type)
-      super(variable_ast, type, "can't be null")
-    end
-  end
-
-  # If a resolve function returns `GraphQL::Query::DEFAULT_RESOLVE`,
-  # The executor will send the field's name to the target object
-  # and use the result.
-  DEFAULT_RESOLVE = :__default_resolve
-  attr_reader :schema, :document, :context, :fragments, :operations, :debug
+  attr_reader :schema, :document, :context, :fragments, :operations, :debug, :max_depth
 
   # Prepare query `query_string` on `schema`
   # @param schema [GraphQL::Schema]
@@ -34,9 +16,10 @@ class GraphQL::Query
   # @param debug [Boolean] if true, errors are raised, if false, errors are put in the `errors` key
   # @param validate [Boolean] if true, `query_string` will be validated with {StaticValidation::Validator}
   # @param operation_name [String] if the query string contains many operations, this is the one which should be executed
-  def initialize(schema, query_string, context: nil, variables: {}, debug: false, validate: true, operation_name: nil)
+  def initialize(schema, query_string, context: nil, variables: {}, debug: false, validate: true, operation_name: nil, max_depth: nil)
     @schema = schema
     @debug = debug
+    @max_depth = max_depth || schema.max_depth
     @context = Context.new(query: self, values: context)
     @validate = validate
     @operation_name = operation_name
@@ -44,7 +27,7 @@ class GraphQL::Query
     @operations = {}
     @provided_variables = variables
     @document = GraphQL.parse(query_string)
-    @document.parts.each do |part|
+    @document.definitions.each do |part|
       if part.is_a?(GraphQL::Language::Nodes::FragmentDefinition)
         @fragments[part.name] = part
       elsif part.is_a?(GraphQL::Language::Nodes::OperationDefinition)
@@ -86,7 +69,7 @@ class GraphQL::Query
   private
 
   def validation_errors
-    @validation_errors ||= schema.static_validator.validate(document)
+    @validation_errors ||= schema.static_validator.validate(self)
   end
 
 
@@ -104,11 +87,12 @@ class GraphQL::Query
 end
 
 require 'graphql/query/arguments'
-require 'graphql/query/base_execution'
 require 'graphql/query/context'
-require 'graphql/query/directive_chain'
+require 'graphql/query/directive_resolution'
 require 'graphql/query/executor'
 require 'graphql/query/literal_input'
 require 'graphql/query/serial_execution'
 require 'graphql/query/type_resolver'
 require 'graphql/query/variables'
+require 'graphql/query/input_validation_result'
+require 'graphql/query/variable_validation_error'

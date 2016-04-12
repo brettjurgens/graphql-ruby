@@ -11,16 +11,19 @@ module GraphQL
   #   end
   #
   class ScalarType < GraphQL::BaseType
-    defined_by_config :name, :coerce, :coerce_input, :coerce_result, :description
-    attr_accessor :name, :description
+    accepts_definitions :coerce, :coerce_input, :coerce_result
 
     def coerce=(proc)
       self.coerce_input = proc
       self.coerce_result = proc
     end
 
-    def valid_non_null_input?(value)
-      !coerce_non_null_input(value).nil?
+    def validate_non_null_input(value)
+      result = Query::InputValidationResult.new
+      if coerce_non_null_input(value).nil?
+        result.add_problem("Could not coerce value #{JSON.dump(value)} to #{name}")
+      end
+      result
     end
 
     def coerce_non_null_input(value)
@@ -28,7 +31,9 @@ module GraphQL
     end
 
     def coerce_input=(proc)
-      @coerce_input_proc = proc unless proc.nil?
+      if !proc.nil?
+        @coerce_input_proc = proc
+      end
     end
 
     def coerce_result(value)
@@ -36,7 +41,9 @@ module GraphQL
     end
 
     def coerce_result=(proc)
-      @coerce_result_proc = proc unless proc.nil?
+      if !proc.nil?
+        @coerce_result_proc = proc
+      end
     end
 
     def kind

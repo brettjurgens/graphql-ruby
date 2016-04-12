@@ -6,6 +6,62 @@
 
 ### Bug fixes
 
+## 0.12.0 (20 Mar 2016)
+
+### Breaking changes & deprecations
+
+- `GraphQL::DefinitionConfig` was replaced by `GraphQL::Define` #116
+- Many scalar types are more picky about which inputs they allow (#115). To get the previous behavior, add this to your program:
+
+  ```ruby
+  # Previous coerce behavior for scalars:
+  GraphQL::BOOLEAN_TYPE.coerce = -> (value) { !!value }
+  GraphQL::ID_TYPE.coerce = -> (value) { value.to_s }
+  GraphQL::STRING_TYPE.coerce = ->  (value) { value.to_s }
+  # INT_TYPE and FLOAT_TYPE were unchanged
+  ```
+
+- `GraphQL::Field`s can't be renamed because `#resolve` may depend on that name. (This was only a problem if you pass the _same_ `GraphQL::Field` instance to `field ... field:` definitions.)
+- `GraphQL::Query::DEFAULT_RESOLVE` was removed. `GraphQL::Field#resolve` handles that behavior.
+
+### New features
+
+- Can override `max_depth:` from `Schema#execute`
+- Base `GraphQL::Error` for all graphql-related errors
+
+### Bug fixes
+
+- Include `""` for String default values (so it's encoded as a GraphQL string literal)
+
+## 0.11.1 (6 Mar 2016)
+
+### New features
+
+- Schema `max_depth:` option #110
+- Improved validation errors for input objects #104
+- Interfaces provide field implementations to object types #108
+
+## 0.11.0 (28 Feb 2016)
+
+### Breaking changes & deprecations
+
+- `GraphQL::Query::BaseExecution` was removed, you should probably extend `SerialExecution` instead #96
+- `GraphQL::Language::Nodes` members no longer raise if they don't get inputs during `initialize` #92
+- `GraphQL.parse` no longer accepts `as:` for parsing partial queries.  #92
+
+### New features
+
+- `Field#property` & `Field#property=` can be used to access & modify the method that will be sent to the underlying object when resolving a field #88
+- When defining a field, you can pass a string for as `type`. It will be looked up in the global namespace.
+- `Query::Arguments#to_h` unwraps `Arguments` objects recursively
+- If you raise `GraphQL::ExecutionError` during field resolution, it will be rescued and the message will be added to the response's `errors` key. #93
+- Raise an error when non-null fields are `nil` #94
+
+### Bug fixes
+
+- Accept Rails params as input objects
+- Don't get a runtime error when input contains unknown key #100
+
 ## 0.10.9 (15 Jan 2016)
 
 ### Bug fixes

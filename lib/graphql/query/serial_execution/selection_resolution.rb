@@ -2,33 +2,24 @@ module GraphQL
   class Query
     class SerialExecution
       class SelectionResolution
-        attr_reader :target, :type, :selections, :query, :execution_strategy
+        attr_reader :target, :type, :selections, :execution_context
 
-        def initialize(target, type, selections, query, execution_strategy)
+        def initialize(target, type, selections, execution_context)
           @target = target
           @type = type
           @selections = selections
-          @query = query
-          @execution_strategy = execution_strategy
+          @execution_context = execution_context
         end
 
         def result
-          # In a first pass, we flatten the selection by merging in fields from
-          # any fragments - this prevents us from resolving the same fields
-          # more than one time in cases where fragments repeat fields.
-          # Then, In a second pass, we resolve the flattened set of fields
-          selections
-            .reduce({}){|memo, ast_node|
-              flattened_selections = flatten_selection(ast_node)
-              flattened_selections.each do |name, selection|
-                merge_into_result(memo, selection)
-              end
-              memo
-            }
+          flatten_and_merge_selections(selections)
             .values
-            .reduce({}){|memo, ast_node|
-              memo.merge(resolve_field(ast_node))
+            .reduce({}) { |result, ast_node|
+              result.merge(resolve_field(ast_node))
             }
+        rescue GraphQL::InvalidNullError => err
+          err.parent_error? || execution_context.add_error(err)
+          nil
         end
 
         private
@@ -46,47 +37,37 @@ module GraphQL
 
         def flatten_field(ast_node)
           result_name = ast_node.alias || ast_node.name
-          return { result_name => ast_node }
+          { result_name => ast_node }
         end
 
         def flatten_inline_fragment(ast_node)
-          chain = GraphQL::Query::DirectiveChain.new(ast_node, query) {
-            flatten_fragment(ast_node)
-          }
-          chain.result
+          return {} unless GraphQL::Query::DirectiveResolution.include_node?(ast_node, execution_context.query)
+          flatten_fragment(ast_node)
         end
 
         def flatten_fragment_spread(ast_node)
-          ast_fragment_defn = query.fragments[ast_node.name]
-          chain = GraphQL::Query::DirectiveChain.new(ast_node, query) {
-            flatten_fragment(ast_fragment_defn)
-          }
-          chain.result
+          return {} unless GraphQL::Query::DirectiveResolution.include_node?(ast_node, execution_context.query)
+          ast_fragment_defn = execution_context.get_fragment(ast_node.name)
+          flatten_fragment(ast_fragment_defn)
         end
 
         def flatten_fragment(ast_fragment)
-          if !fragment_type_can_apply?(ast_fragment)
-            return {}
+          if fragment_type_can_apply?(ast_fragment)
+            flatten_and_merge_selections(ast_fragment.selections)
+          else
+            {}
           end
-
-          flat_result = {}
-          ast_fragment.selections.each do |selection|
-            flat_selection = flatten_selection(selection)
-            flat_selection.each do |name, selection|
-              merge_into_result(flat_result, selection)
-            end
-          end
-          flat_result
         end
 
         def fragment_type_can_apply?(ast_fragment)
-          child_type = query.schema.types[ast_fragment.type]
+          return true unless ast_fragment.type
+          child_type = execution_context.get_type(ast_fragment.type)
           resolved_type = GraphQL::Query::TypeResolver.new(target, child_type, type).type
           !resolved_type.nil?
         end
 
         def merge_fields(field1, field2)
-          field_type = query.schema.get_field(type, field2.name).type.unwrap
+          field_type = execution_context.get_field(type, field2.name).type.unwrap
 
           if field_type.kind.fields?
             # create a new ast field node merging selections from each field.
@@ -105,10 +86,13 @@ module GraphQL
         end
 
         def resolve_field(ast_node)
-          chain = GraphQL::Query::DirectiveChain.new(ast_node, query) {
-            execution_strategy.field_resolution.new(ast_node, type, target, query, execution_strategy).result
-          }
-          chain.result
+          return {} unless GraphQL::Query::DirectiveResolution.include_node?(ast_node, execution_context.query)
+          execution_context.strategy.field_resolution.new(
+            ast_node,
+            type,
+            target,
+            execution_context
+          ).result
         end
 
         def merge_into_result(memo, selection)
@@ -118,10 +102,20 @@ module GraphQL
             selection.name
           end
 
-          if memo.has_key?(name)
-            memo[name] = merge_fields(memo[name], selection)
+          memo[name] = if memo.has_key?(name)
+            merge_fields(memo[name], selection)
           else
-            memo[name] = selection
+            selection
+          end
+        end
+
+        def flatten_and_merge_selections(selections)
+          selections.reduce({}) do |result, ast_node|
+            flattened_selections = flatten_selection(ast_node)
+            flattened_selections.each do |name, selection|
+              merge_into_result(result, selection)
+            end
+            result
           end
         end
       end

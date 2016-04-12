@@ -11,16 +11,22 @@
 #     value("JAVASCRIPT", "Accidental lingua franca of the web")
 #   end
 class GraphQL::EnumType < GraphQL::BaseType
-  attr_accessor :name, :description, :values
-  defined_by_config :name, :description, :values
+  accepts_definitions value: GraphQL::Define::AssignEnumValue
+
+  def initialize
+    @values_by_name = {}
+    @values_by_value = {}
+  end
 
   def values=(values)
     @values_by_name = {}
     @values_by_value = {}
-    values.each do |enum_value|
-      @values_by_name[enum_value.name] = enum_value
-      @values_by_value[enum_value.value] = enum_value
-    end
+    values.each { |enum_value| add_value(enum_value) }
+  end
+
+  def add_value(enum_value)
+    @values_by_name[enum_value.name] = enum_value
+    @values_by_value[enum_value.value] = enum_value
   end
 
   def values
@@ -41,8 +47,14 @@ class GraphQL::EnumType < GraphQL::BaseType
     GraphQL::TypeKinds::ENUM
   end
 
-  def valid_non_null_input?(value_name)
-    @values_by_name.key?(value_name)
+  def validate_non_null_input(value_name)
+    result = GraphQL::Query::InputValidationResult.new
+
+    if !@values_by_name.key?(value_name)
+      result.add_problem("Expected #{JSON.dump(value_name)} to be one of: #{@values_by_name.keys.join(', ')}")
+    end
+
+    result
   end
 
   # Get the underlying value for this enum value

@@ -27,14 +27,10 @@ module GraphQL
         default_value = ast_variable.default_value
         provided_value = @provided_variables[variable_name]
 
-        unless variable_type.valid_input?(provided_value)
-          if provided_value.nil?
-            raise GraphQL::Query::VariableMissingError.new(ast_variable, variable_type)
-          else
-            raise GraphQL::Query::VariableValidationError.new(ast_variable, variable_type, "was provided invalid value #{JSON.dump(provided_value)}")
-          end
-        end
-        if provided_value.nil?
+        validation_result = variable_type.validate_input(provided_value)
+        if !validation_result.valid?
+          raise GraphQL::Query::VariableValidationError.new(ast_variable, variable_type, provided_value, validation_result)
+        elsif provided_value.nil?
           GraphQL::Query::LiteralInput.coerce(variable_type, default_value, {})
         else
           variable_type.coerce_input(provided_value)
